@@ -1,5 +1,4 @@
-#!/usr/bin/python3
-# coding=utf-8
+#!/usr/bin/env python3
 
 import atexit
 import os.path
@@ -36,7 +35,7 @@ atexit_lock = Lock()
 
 
 def read_config():
-    config_path = os.path.expanduser("~/.pinger.cfg")
+    config_path = os.path.expanduser("~/.host-monitor")
     if not os.path.exists(config_path):
         default_path = os.path.normpath(f"{__file__}/../config_default.yaml")
         shutil.copy(default_path, config_path)
