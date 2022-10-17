@@ -1,0 +1,24 @@
+settings:
+  mini_size: [ 99, 3 ]  # size of mini window in the taskbar (pixels width/height)
+  mini_position: [ 0, -3 ]  # position of mini window (pixels left/top; negative=right/bottom)
+
+groups: # groups of hosts in the main window
+  - hosts:
+      - type: internet-monitor  # main internet connection monitor (vpn will be enabled only if this connection is active)
+        address: 212.77.98.9  # address to ping
+
+  - hosts:
+      - type: vpn  # vpn monitoring and auto-connection
+        name: Default VPN  # name in the GUI
+        assigned_ip: 192.168.152.  # locally assigned IP (if it's assigned to local host, then VPN is assumed running)
+        exclude_ips: [ "192.168.52." ]  # disconnect VPN if any of these IPS are assigned to local host
+        connect: my-vpn.sh start  # VPN connect command
+        disconnect: my-vpn.sh stop  # VPN disconnect command
+
+      - type: host  # host/ping monitoring
+        name: google  # name in the GUI
+        address: 142.250.203.206  # address to ping
+
+      - type: host
+        name: aws
+        address: aws.amazon.com
