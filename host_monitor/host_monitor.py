@@ -50,7 +50,8 @@ class PingLinux(object):
     def __init__(self, host):
         with atexit_lock:
             atexit.register(self.terminate)
-        self.process = sp.Popen("ping -n -W 1 -s 1 -O {}".format(host).split(), stdout=sp.PIPE, stderr=sp.PIPE)
+        self.process = sp.Popen("ping -n -W 1 -s 1 -O {}".format(host).split(), stdout=sp.PIPE, stderr=sp.PIPE,
+                                encoding='utf8')
 
     def read(self):
         while True:
