@@ -12,8 +12,8 @@ groups: # groups of hosts in the main window
         name: Default VPN  # name in the GUI
         assigned_ip: 192.168.152.  # locally assigned IP (if it's assigned to local host, then VPN is assumed running)
         exclude_ips: [ "192.168.52." ]  # disconnect VPN if any of these IPS are assigned to local host
-        connect: my-vpn.sh start  # VPN connect command
-        disconnect: my-vpn.sh stop  # VPN disconnect command
+        connect: my\ vpn.sh start  # VPN connect command (must escape spaces with \)
+        disconnect: my\ vpn.sh stop  # VPN disconnect command
 
       - type: host  # host/ping monitoring
         name: google  # name in the GUI

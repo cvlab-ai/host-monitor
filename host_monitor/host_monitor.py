@@ -2,6 +2,7 @@
 
 import atexit
 import os.path
+import shlex
 import shutil
 import socket
 import subprocess as sp
@@ -179,8 +180,7 @@ class VPN(Thread):
         else:
             startupinfo = None
 
-        command = command.split()
-        command = [c.replace("%SPACE%", " ") for c in command]
+        command = shlex.split(command)
 
         process = sp.Popen(command,
                            stdout=sp.DEVNULL, stderr=sp.DEVNULL, shell=False, creationflags=sp.SW_HIDE,
