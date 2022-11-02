@@ -1,197 +1,19 @@
-#!/usr/bin/env python3
-
-import atexit
-import os.path
-import shlex
-import shutil
-import socket
-import subprocess as sp
 import sys
 import types
-from argparse import ArgumentParser
 from collections import OrderedDict
-from datetime import timedelta
-from threading import Thread, Lock
-from time import sleep
+from threading import Thread
 
-import yaml
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
+
+from host_monitor.config import config
+from host_monitor.host import Host, VPN
 
 application = QApplication(sys.argv)
 
 
-def parse_args():
-    parser = ArgumentParser()
-    parser.add_argument('-t', '--time', help='Time between checks in seconds', default=1, type=float)
-    return parser.parse_args()
-
-
 def flag_set(flags, flag):
     return int(flags) & int(flag) == flag
-
-
-args = parse_args()
-atexit_lock = Lock()
-
-
-def read_config():
-    config_path = os.path.expanduser("~/.host-monitor")
-    if not os.path.exists(config_path):
-        default_path = os.path.normpath(f"{__file__}/../config_default.yaml")
-        shutil.copy(default_path, config_path)
-    return yaml.safe_load(open(config_path))
-
-
-config = read_config()
-
-
-class PingLinux(object):
-    def __init__(self, host):
-        with atexit_lock:
-            atexit.register(self.terminate)
-        self.process = sp.Popen("ping -n -W 1 -s 1 -O {}".format(host).split(), stdout=sp.PIPE, stderr=sp.PIPE,
-                                encoding='utf8')
-
-    def read(self):
-        while True:
-            line = self.process.stdout.readline().strip()
-            if "ttl" in line:
-                return True
-            else:
-                return False
-
-    def terminate(self):
-        self.process.terminate()
-
-    def __del__(self):
-        self.terminate()
-
-
-class PingWindows(object):
-    def __init__(self, host):
-        startupinfo = sp.STARTUPINFO()
-        startupinfo.dwFlags |= sp.STARTF_USESHOWWINDOW
-        self.process = sp.Popen("ping -w 100 -l 1 -t {}".format(host).split(),
-                                stdout=sp.PIPE, stderr=sp.PIPE, shell=False, creationflags=sp.SW_HIDE,
-                                startupinfo=startupinfo, encoding='utf8')
-        atexit.register(self.terminate)
-
-    def read(self):
-        while True:
-            line = self.process.stdout.readline().strip()
-            if __debug__: print(line)
-            if "TTL" in line:
-                return True
-            else:
-                return False
-
-    def terminate(self):
-        self.process.terminate()
-
-
-if sys.platform == "win32":
-    Ping = PingWindows
-else:
-    Ping = PingLinux
-
-
-class Host(Thread):
-    time_delta = timedelta(seconds=args.time)
-
-    def __init__(self, id, address):
-        super(Host, self).__init__()
-        self.id = id
-        self.address = address
-        self.daemon = True
-        self.state = None
-        self.ping = Ping(address)
-        self.start()
-
-    def run(self):
-        sleep(1)
-        while True:
-            try:
-                ping_success = self.ping.read()
-                if ping_success != self.state:
-                    gui.ping_changed_signal.emit(self, ping_success)
-                    self.state = ping_success
-            except Exception:
-                pass
-
-
-class VPN(Thread):
-    check_timeout = 1
-    command_wait = 10
-
-    def __init__(self, id, exclude_ips, vpn_ip, connect, disconnect, internet_monitor):
-        super(VPN, self).__init__()
-        self.id = id
-        self.exclude_ips = exclude_ips
-        self.vpn_ip = vpn_ip
-        self.connect = connect
-        self.disconnect = disconnect
-        self.internet_monitor = internet_monitor
-        self.daemon = True
-        self.start()
-
-    @staticmethod
-    def ip_addresses():
-        return set([ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")])
-
-    def have_excluded_ip(self, ips):
-        for exclude_ip in self.exclude_ips:
-            for ip in ips:
-                if ip.startswith(exclude_ip):
-                    return True
-        return False
-
-    def run(self):
-        last_running = None
-        while True:
-            sleep(self.check_timeout)
-            try:
-                if self.internet_monitor:
-                    if not self.internet_monitor.state:
-                        continue
-
-                ips = self.ip_addresses()
-                vpn_running = any(ip.startswith(self.vpn_ip) for ip in ips)
-                shall_vpn = not self.have_excluded_ip(ips)
-
-                if vpn_running != shall_vpn:
-                    if shall_vpn:
-                        # print(f"Starting VPN {self.id}")
-                        self.run_command(self.connect)
-                    else:
-                        # print(f"Stopping VPN {self.id}")
-                        self.run_command(self.disconnect)
-
-                if vpn_running != last_running:
-                    gui.ping_changed_signal.emit(self, vpn_running)
-                    last_running = vpn_running
-
-            except Exception:
-                pass
-
-    def run_command(self, command):
-        if sys.platform == 'win32':
-            startupinfo = sp.STARTUPINFO()
-            startupinfo.dwFlags |= sp.STARTF_USESHOWWINDOW
-        else:
-            startupinfo = None
-
-        command = shlex.split(command)
-
-        process = sp.Popen(command,
-                           stdout=sp.DEVNULL, stderr=sp.DEVNULL, shell=False, creationflags=sp.SW_HIDE,
-                           startupinfo=startupinfo, encoding='utf8')
-
-        ret_code = process.wait()
-
-        sleep(self.command_wait)
-
-        return ret_code == 0
 
 
 def on_gui(func):
@@ -436,8 +258,3 @@ gui = MainWindow()
 
 def run_app():
     return application.exec_()
-
-
-if __name__ == '__main__':
-    ret_code = run_app()
-    sys.exit(ret_code)

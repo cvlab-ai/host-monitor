@@ -35,7 +35,7 @@ setup(
     url='https://github.com/cvlab-ai/host-monitor',
     packages=find_packages("."),
     package_data={"host_monitor": data_files},
-    entry_points={'gui_scripts': ['host-monitor=host_monitor.host_monitor:run_app']},
+    entry_points={'gui_scripts': ['host-monitor=host_monitor.main:main']},
     license="GPL-3.0+",
     python_requires='>=3.6',
     install_requires=requirements,
