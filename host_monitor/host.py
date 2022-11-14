@@ -34,6 +34,7 @@ class Host(Thread):
 class VPN(Thread):
     check_timeout = 1
     command_wait = 10
+    internet_connection_checks = 3
 
     def __init__(self, id, exclude_ips, vpn_ip, connect, disconnect, internet_monitor):
         super(VPN, self).__init__()
@@ -57,6 +58,18 @@ class VPN(Thread):
                     return True
         return False
 
+    def is_internet_connected(self):
+        if not self.internet_monitor:
+            return True
+
+        for i in range(self.internet_connection_checks):
+            if i > 0:
+                sleep(self.check_timeout)
+            if not self.internet_monitor.state:
+                return False
+
+        return True
+
     def run(self):
         from host_monitor.gui import gui
 
@@ -64,9 +77,8 @@ class VPN(Thread):
         while True:
             sleep(self.check_timeout)
             try:
-                if self.internet_monitor:
-                    if not self.internet_monitor.state:
-                        continue
+                if not self.is_internet_connected():
+                    continue
 
                 ips = self.ip_addresses()
                 vpn_running = any(ip.startswith(self.vpn_ip) for ip in ips)

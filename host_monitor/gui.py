@@ -49,8 +49,6 @@ class HostLabel(QLabel):
             "font-size:12pt; font-family:Monospace, TypeWriter, Courier; font-weight:bold; color:black; margin:0 30; ")
 
     def set_up(self, value):
-        # txt =  self.name + "\t" + ("UP" if value else "DOWN")
-        # self.setText(txt)
         set_bg_color(self, self.colors[value])
 
 
