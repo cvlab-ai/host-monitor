@@ -2,17 +2,13 @@ import shlex
 import socket
 import subprocess as sp
 import sys
-from datetime import timedelta
 from threading import Thread
 from time import sleep
 
-from host_monitor.config import args
 from host_monitor.ping import Ping
 
 
 class Host(Thread):
-    time_delta = timedelta(seconds=args.time)
-
     def __init__(self, id, address):
         super(Host, self).__init__()
         self.id = id
