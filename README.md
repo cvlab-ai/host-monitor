@@ -12,7 +12,7 @@ Simple GUI sitting in the tray:
 
 ## Usage
 
-```host-monitor [--time seconds]```
+```host-monitor [--verbose]```
 
 # License
 
