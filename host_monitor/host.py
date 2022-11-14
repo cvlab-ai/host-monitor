@@ -5,6 +5,7 @@ import sys
 from threading import Thread
 from time import sleep
 
+from host_monitor.config import args
 from host_monitor.ping import Ping
 
 
@@ -36,7 +37,7 @@ class VPN(Thread):
     command_wait = 10
     internet_connection_checks = 3
 
-    def __init__(self, id, exclude_ips, vpn_ip, connect, disconnect, internet_monitor):
+    def __init__(self, id, exclude_ips, vpn_ip, connect, disconnect, internet_monitor, mode):
         super(VPN, self).__init__()
         self.id = id
         self.exclude_ips = exclude_ips
@@ -45,6 +46,7 @@ class VPN(Thread):
         self.disconnect = disconnect
         self.internet_monitor = internet_monitor
         self.daemon = True
+        self.mode = mode
         self.start()
 
     @staticmethod
@@ -77,19 +79,32 @@ class VPN(Thread):
         while True:
             sleep(self.check_timeout)
             try:
-                if not self.is_internet_connected():
-                    continue
+                internet = self.is_internet_connected()
 
                 ips = self.ip_addresses()
                 vpn_running = any(ip.startswith(self.vpn_ip) for ip in ips)
-                shall_vpn = not self.have_excluded_ip(ips)
+
+                if self.mode == "auto":
+                    if not internet:
+                        continue
+                    shall_vpn = not self.have_excluded_ip(ips)
+                elif self.mode == "disconnect":
+                    shall_vpn = False
+                elif self.mode == "connect":
+                    if not internet:
+                        continue
+                    shall_vpn = True
+                else:
+                    raise Exception("Unknown VPN mode")
 
                 if vpn_running != shall_vpn:
                     if shall_vpn:
-                        # print(f"Starting VPN {self.id}")
+                        if args.verbose:
+                            print(f"Starting VPN {self.id}")
                         self.run_command(self.connect)
                     else:
-                        # print(f"Stopping VPN {self.id}")
+                        if args.verbose:
+                            print(f"Stopping VPN {self.id}")
                         self.run_command(self.disconnect)
 
                 if vpn_running != last_running:

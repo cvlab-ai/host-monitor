@@ -46,7 +46,7 @@ class HostLabel(QLabel):
         self.set_up(None)
         self.setAlignment(Qt.AlignCenter)
         self.setStyleSheet(
-            "font-size:12pt; font-family:Monospace, TypeWriter, Courier; font-weight:bold; color:black; margin:0 30; ")
+            "font-size:12pt; font-family:Monospace, TypeWriter, Courier; font-weight:bold; color:black; margin:0 5; ")
 
     def set_up(self, value):
         set_bg_color(self, self.colors[value])
@@ -58,6 +58,39 @@ class HostMiniLabel(QWidget):
 
     def set_up(self, value):
         set_bg_color(self, HostLabel.colors[value])
+
+
+class VPNLabel(HostLabel):
+    def __init__(self, name, address, vpn):
+        super().__init__(name, address)
+
+        self.vpn = vpn
+
+        layout = QHBoxLayout()
+        self.setLayout(layout)
+        layout.setAlignment(Qt.AlignRight)
+        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setStretch(0, 0)
+
+        self.checkbox = QCheckBox()
+        self.checkbox.setTristate(True)
+        self.checkbox.setCheckState(Qt.CheckState.PartiallyChecked)
+        self.checkbox.setToolTip("""VPN connection mode.
+ * Unchecked = Force disconnected
+ * Part-checked = Automatic
+ * Checked = Force connected""")
+        self.checkbox.setStyleSheet("margin:0 0")
+        self.checkbox.stateChanged.connect(self.checked_changed)
+        layout.addWidget(self.checkbox)
+
+    def checked_changed(self, state):
+        if state == Qt.CheckState.Unchecked:
+            self.vpn.mode = "disconnect"
+        elif state == Qt.CheckState.PartiallyChecked:
+            self.vpn.mode = "auto"
+        elif state == Qt.CheckState.Checked:
+            self.vpn.mode = "connect"
 
 
 class MiniWindow(QWidget):
@@ -123,7 +156,7 @@ class MainWindow(QWidget):
 
         self.setObjectName("MainWindow")
         self.setWindowTitle('Pinger')
-        # self.setGeometry(500, 400, 800, 600)
+        self.setFixedWidth(config['settings']['width'])
 
         self.run_on_gui_signal.connect(self.run_on_gui_slot)
         self.ping_changed_signal.connect(self.ping_changed_slot)
@@ -162,9 +195,10 @@ class MainWindow(QWidget):
                     exclude_ips = definition['exclude_ips']
                     vpn_connect = definition['connect']
                     vpn_disconnect = definition['disconnect']
+                    mode = definition['mode']
                     host_id = (group_id, name)
-                    label = HostLabel(name, "VPN")
-                    host = VPN(host_id, exclude_ips, vpn_ip, vpn_connect, vpn_disconnect, internet_monitor)
+                    host = VPN(host_id, exclude_ips, vpn_ip, vpn_connect, vpn_disconnect, internet_monitor, mode)
+                    label = VPNLabel(name, "VPN", host)
 
                 elif type == 'host':
                     name = definition['name']
@@ -190,7 +224,8 @@ class MainWindow(QWidget):
         self.center()
 
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
-        self.hide()
+        self.show()
+        # self.hide()
 
     @property
     def state(self):
