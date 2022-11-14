@@ -8,6 +8,7 @@ import yaml
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument('-t', '--time', help='Time between checks in seconds', default=1, type=float)
+    parser.add_argument('-v', '--verbose', help='Show debug messages', action="store_true")
     return parser.parse_args()
 
 

@@ -6,7 +6,7 @@ from threading import Thread
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 
-from host_monitor.config import config
+from host_monitor.config import config, args
 from host_monitor.host import Host, VPN
 
 application = QApplication(sys.argv)
@@ -192,9 +192,7 @@ class MainWindow(QWidget):
         self.center()
 
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
-
-        if not __debug__:
-            self.hide()
+        self.hide()
 
     @property
     def state(self):
@@ -211,7 +209,7 @@ class MainWindow(QWidget):
 
     @pyqtSlot(Host, bool)
     def ping_changed_slot(self, host, up):
-        if __debug__: print(host, up)
+        if args.verbose: print(host, up)
         self.labels[host.id].set_up(up)
         self.mini_window.set_up(host.id, up)
 

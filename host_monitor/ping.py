@@ -3,6 +3,8 @@ import subprocess as sp
 import sys
 from threading import Lock
 
+from host_monitor.config import args
+
 atexit_lock = Lock()
 
 
@@ -40,7 +42,7 @@ class PingWindows(object):
     def read(self):
         while True:
             line = self.process.stdout.readline().strip()
-            if __debug__: print(line)
+            if args.verbose: print(line)
             if "TTL" in line:
                 return True
             else:
