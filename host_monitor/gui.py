@@ -224,8 +224,7 @@ class MainWindow(QWidget):
         self.center()
 
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
-        self.show()
-        # self.hide()
+        self.hide()
 
     @property
     def state(self):
