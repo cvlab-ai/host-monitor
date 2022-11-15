@@ -241,7 +241,8 @@ class MainWindow(QWidget):
 
     @pyqtSlot(Host, bool)
     def ping_changed_slot(self, host, up):
-        if args.verbose: print(host, up)
+        if args.verbose:
+            print(f"{host.__class__.__name__} '{host.id[1]}' up state: {up}")
         self.labels[host.id].set_up(up)
         self.mini_window.set_up(host.id, up)
 
