@@ -61,6 +61,12 @@ class HostMiniLabel(QWidget):
 
 
 class VPNLabel(HostLabel):
+    modes = {
+        Qt.CheckState.Checked: "connect",
+        Qt.CheckState.Unchecked: "disconnect",
+        Qt.CheckState.PartiallyChecked: "auto",
+    }
+
     def __init__(self, name, address, vpn):
         super().__init__(name, address)
 
@@ -75,7 +81,7 @@ class VPNLabel(HostLabel):
 
         self.checkbox = QCheckBox()
         self.checkbox.setTristate(True)
-        self.checkbox.setCheckState(Qt.CheckState.PartiallyChecked)
+        self.checkbox.setCheckState({v: k for k, v in self.modes.items()}[self.vpn.mode])
         self.checkbox.setToolTip("""VPN connection mode.
  * Unchecked = Force disconnected
  * Part-checked = Automatic
@@ -85,12 +91,7 @@ class VPNLabel(HostLabel):
         layout.addWidget(self.checkbox)
 
     def checked_changed(self, state):
-        if state == Qt.CheckState.Unchecked:
-            self.vpn.mode = "disconnect"
-        elif state == Qt.CheckState.PartiallyChecked:
-            self.vpn.mode = "auto"
-        elif state == Qt.CheckState.Checked:
-            self.vpn.mode = "connect"
+        self.vpn.mode = self.modes[state]
 
 
 class MiniWindow(QWidget):
