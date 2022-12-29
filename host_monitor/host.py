@@ -2,6 +2,7 @@ import shlex
 import socket
 import subprocess as sp
 import sys
+from datetime import datetime
 from threading import Thread
 from time import sleep
 
@@ -47,6 +48,8 @@ class VPN(Thread):
         self.internet_monitor = internet_monitor
         self.daemon = True
         self.mode = mode
+        self.state = None  # states: disconnected, connecting, connected, disconnecting
+        self.last_command_time = datetime(2000, 1, 1)
         self.start()
 
     @staticmethod
@@ -74,8 +77,6 @@ class VPN(Thread):
 
     def run(self):
         from host_monitor.gui import gui
-
-        last_running = None
         while True:
             sleep(self.check_timeout)
             try:
@@ -83,6 +84,7 @@ class VPN(Thread):
 
                 ips = self.ip_addresses()
                 vpn_running = any(ip.startswith(self.vpn_ip) for ip in ips)
+                command_waiting = (datetime.now() - self.last_command_time).total_seconds() < self.command_wait
 
                 if self.mode == "auto":
                     if not internet:
@@ -97,19 +99,24 @@ class VPN(Thread):
                 else:
                     raise Exception("Unknown VPN mode")
 
-                if vpn_running != shall_vpn:
-                    if shall_vpn:
-                        if args.verbose:
-                            print(f"Starting VPN {self.id}")
-                        self.run_command(self.connect)
-                    else:
-                        if args.verbose:
-                            print(f"Stopping VPN {self.id}")
-                        self.run_command(self.disconnect)
-
-                if vpn_running != last_running:
-                    gui.ping_changed_signal.emit(self, vpn_running)
-                    last_running = vpn_running
+                if shall_vpn and vpn_running and self.state != 'connected':
+                    self.state = 'connected'
+                    gui.ping_changed_signal.emit(self, True)
+                elif not shall_vpn and not vpn_running and self.state != 'disconnected':
+                    self.state = 'disconnected'
+                    gui.ping_changed_signal.emit(self, False)
+                elif shall_vpn and not vpn_running and (self.state != 'connecting' or not command_waiting):
+                    gui.ping_changed_signal.emit(self, None)
+                    if args.verbose:
+                        print(f"Starting VPN {self.id}")
+                    self.state = 'connecting'
+                    self.run_command(self.connect)
+                elif not shall_vpn and vpn_running and (self.state != 'disconnecting' or not command_waiting):
+                    gui.ping_changed_signal.emit(self, None)
+                    if args.verbose:
+                        print(f"Stopping VPN {self.id}")
+                    self.state = 'disconnecting'
+                    self.run_command(self.disconnect)
 
             except Exception:
                 pass
@@ -123,12 +130,12 @@ class VPN(Thread):
 
         command = shlex.split(command)
 
+        self.last_command_time = datetime.now()
+
         process = sp.Popen(command,
                            stdout=sp.DEVNULL, stderr=sp.DEVNULL, shell=False, creationflags=sp.SW_HIDE,
                            startupinfo=startupinfo, encoding='utf8')
 
         ret_code = process.wait()
-
-        sleep(self.command_wait)
 
         return ret_code == 0

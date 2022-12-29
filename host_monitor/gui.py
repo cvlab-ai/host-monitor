@@ -144,7 +144,7 @@ class MiniWindow(QWidget):
 
 class MainWindow(QWidget):
     run_on_gui_signal = pyqtSignal(types.FunctionType, tuple, dict)
-    ping_changed_signal = pyqtSignal(Thread, bool)
+    ping_changed_signal = pyqtSignal(Thread, object)
 
     NORMAL = 'normal'
     HIDDEN = 'hidden'
@@ -240,7 +240,7 @@ class MainWindow(QWidget):
     def run_on_gui_slot(self, func, args, kwargs):
         func(*args, **kwargs)
 
-    @pyqtSlot(Host, bool)
+    @pyqtSlot(Host, object)
     def ping_changed_slot(self, host, up):
         if args.verbose:
             print(f"{host.__class__.__name__} '{host.id[1]}' up state: {up}")
