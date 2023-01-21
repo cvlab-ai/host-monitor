@@ -1,6 +1,5 @@
 import sys
 import types
-from collections import OrderedDict
 from threading import Thread
 
 from PyQt5.QtCore import *
@@ -171,10 +170,8 @@ class MainWindow(QWidget):
         self.mini_window.enter.connect(self.preview)
         self.mini_window.leave.connect(self.close_preview)
 
-        self.labels = OrderedDict()
-        self.hosts = []
-
-        internet_monitor = None
+        self.labels = {}
+        self.hosts = {}
 
         for group_id, host_group in enumerate(config['groups']):
 
@@ -182,23 +179,22 @@ class MainWindow(QWidget):
                 type = definition['type']
 
                 if type == 'internet-monitor':
-                    assert internet_monitor is None
                     name = 'INTERNET'
                     address = definition['address']
                     host_id = (group_id, name)
                     label = HostLabel(name, address)
                     host = Host(host_id, address)
-                    internet_monitor = host
 
                 elif type == 'vpn':
                     name = definition['name']
                     vpn_ip = definition['assigned_ip']
                     exclude_ips = definition['exclude_ips']
+                    ping_ip = definition['ping_ip']
                     vpn_connect = definition['connect']
                     vpn_disconnect = definition['disconnect']
                     mode = definition['mode']
                     host_id = (group_id, name)
-                    host = VPN(host_id, exclude_ips, vpn_ip, vpn_connect, vpn_disconnect, internet_monitor, mode)
+                    host = VPN(host_id, exclude_ips, vpn_ip, ping_ip, vpn_connect, vpn_disconnect, mode)
                     label = VPNLabel(name, "VPN", host)
 
                 elif type == 'host':
@@ -215,7 +211,7 @@ class MainWindow(QWidget):
                 layout.addWidget(label)
 
                 self.mini_window.addLabel(host_id)
-                self.hosts.append(host)
+                self.hosts[host_id] = host
 
             spacer = QWidget()
             spacer.setFixedHeight(10)
@@ -226,6 +222,9 @@ class MainWindow(QWidget):
 
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
         self.hide()
+
+        for host in self.hosts.values():
+            host.start()
 
     @property
     def state(self):
@@ -242,7 +241,7 @@ class MainWindow(QWidget):
 
     @pyqtSlot(Host, object)
     def ping_changed_slot(self, host, up):
-        if args.verbose:
+        if args.verbose and isinstance(host, VPN):
             print(f"{host.__class__.__name__} '{host.id[1]}' up state: {up}")
         self.labels[host.id].set_up(up)
         self.mini_window.set_up(host.id, up)
@@ -283,6 +282,22 @@ class MainWindow(QWidget):
         if self.state != self.PREVIEW: return
         self.setWindowState(Qt.WindowMinimized)
         self.hide()
+
+    def get_host(self, group=None, name=None, ip=None):
+        if group and name and (group, name) in self.hosts:
+            return self.hosts[group, name]
+
+        if name:
+            for (host_group, host_name), host in self.hosts.items():
+                if host_name == name:
+                    return host
+
+        if ip:
+            for host in self.hosts.values():
+                if getattr(host, "address", None) == ip:
+                    return host
+
+        return None
 
 
 gui = MainWindow()
