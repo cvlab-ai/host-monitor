@@ -3,6 +3,7 @@ import types
 from threading import Thread
 
 from PyQt5.QtCore import *
+from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import *
 
 from host_monitor.config import config, args
@@ -34,7 +35,17 @@ def set_bg_color(widget, color):
 
 
 class HostLabel(QLabel):
-    colors = {None: Qt.gray, True: Qt.darkGreen, False: Qt.red}
+    colors = {
+        None: QColor("#577e77"),
+        False: QColor("#b32a22"),
+        True: QColor("#32a35f"),
+    }
+
+    icons = {
+        None: QStyle.SP_MessageBoxQuestion,
+        False: QStyle.SP_DialogCancelButton,
+        True: QStyle.SP_DialogApplyButton,
+    }
 
     def __init__(self, name, address):
         QWidget.__init__(self)
@@ -42,13 +53,33 @@ class HostLabel(QLabel):
         self.address = address
         self.setText("<big><b>{}</b></big><br/><small>{}</small>".format(name, address))
 
-        self.set_up(None)
         self.setAlignment(Qt.AlignCenter)
-        self.setStyleSheet(
-            "font-size:12pt; font-family:Monospace, TypeWriter, Courier; font-weight:bold; color:black; margin:0 5; ")
+
+        layout = QHBoxLayout()
+        self.setLayout(layout)
+        layout.setAlignment(Qt.AlignRight)
+        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setStretch(0, 0)
+
+        self.icon = QLabel()
+        self.icon.setFixedSize(16, 16)
+        layout.addWidget(self.icon)
+
+        self.init_icons()
+        self.set_up(None)
+
+    def init_icons(self):
+        if not isinstance(self.icons[None], int):
+            return
+        for key, icon in self.icons.items():
+            icon = self.style().standardIcon(icon)
+            icon = icon.pixmap(QSize(16, 16))
+            self.icons[key] = icon
 
     def set_up(self, value):
         set_bg_color(self, self.colors[value])
+        self.icon.setPixmap(self.icons[value])
 
 
 class HostMiniLabel(QWidget):
@@ -61,9 +92,9 @@ class HostMiniLabel(QWidget):
 
 class VPNLabel(HostLabel):
     modes = {
-        Qt.CheckState.Checked: "connect",
+        Qt.CheckState.Checked: "auto",
         Qt.CheckState.Unchecked: "disconnect",
-        Qt.CheckState.PartiallyChecked: "auto",
+        Qt.CheckState.PartiallyChecked: "ignore",
     }
 
     def __init__(self, name, address, vpn):
@@ -71,23 +102,15 @@ class VPNLabel(HostLabel):
 
         self.vpn = vpn
 
-        layout = QHBoxLayout()
-        self.setLayout(layout)
-        layout.setAlignment(Qt.AlignRight)
-        layout.setSpacing(0)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setStretch(0, 0)
-
         self.checkbox = QCheckBox()
         self.checkbox.setTristate(True)
         self.checkbox.setCheckState({v: k for k, v in self.modes.items()}[self.vpn.mode])
         self.checkbox.setToolTip("""VPN connection mode.
- * Unchecked = Force disconnected
- * Part-checked = Automatic
- * Checked = Force connected""")
-        self.checkbox.setStyleSheet("margin:0 0")
+ * Unchecked = Disconnect
+ * Part-checked = Ignore
+ * Checked = Auto-connect""")
         self.checkbox.stateChanged.connect(self.checked_changed)
-        layout.addWidget(self.checkbox)
+        self.layout().insertWidget(0, self.checkbox)
 
     def checked_changed(self, state):
         self.vpn.mode = self.modes[state]
@@ -151,12 +174,26 @@ class MainWindow(QWidget):
 
     def __init__(self):
         super(MainWindow, self).__init__()
-
         self.is_previewing = False
 
-        self.setObjectName("MainWindow")
         self.setWindowTitle('Pinger')
-        self.setFixedWidth(config['settings']['width'])
+        self.setMinimumWidth(config['settings']['width'])
+
+        self.setStyleSheet("""
+        MainWindow {
+             background: #2b3f3b;
+        }
+        HostLabel {
+            font-size:12pt; 
+            font-family:Consolas, Monospace, TypeWriter, Courier; 
+            font-weight:bold; 
+            color:black;
+            margin:0 5;
+        }
+        QCheckBox {
+            margin: 0 0;
+        }
+        """)
 
         self.run_on_gui_signal.connect(self.run_on_gui_slot)
         self.ping_changed_signal.connect(self.ping_changed_slot)
@@ -174,6 +211,11 @@ class MainWindow(QWidget):
         self.hosts = {}
 
         for group_id, host_group in enumerate(config['groups']):
+
+            if group_id > 0:
+                spacer = QWidget()
+                spacer.setFixedHeight(10)
+                layout.addWidget(spacer)
 
             for definition in host_group['hosts']:
                 type = definition['type']
@@ -212,10 +254,6 @@ class MainWindow(QWidget):
 
                 self.mini_window.addLabel(host_id)
                 self.hosts[host_id] = host
-
-            spacer = QWidget()
-            spacer.setFixedHeight(10)
-            layout.addWidget(spacer)
 
         self.showNormal()
         self.center()

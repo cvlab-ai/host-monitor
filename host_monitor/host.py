@@ -6,7 +6,7 @@ from datetime import datetime
 from threading import Thread
 from time import sleep
 
-from host_monitor.config import args
+from host_monitor.config import args, config
 from host_monitor.ping import Ping
 
 
@@ -37,7 +37,6 @@ class Host(Thread):
 
 class VPN(Thread):
     check_timeout = 1
-    command_wait = 10
     internet_connection_checks = 3
     vpn_pings = 5
 
@@ -78,9 +77,12 @@ class VPN(Thread):
 
         return True
 
+    def is_vpn_ip_assigned(self, ips):
+        return any(ip.startswith(self.vpn_ip) for ip in ips)
+
     def is_vpn_running(self, ips):
         # vpn ip assigned
-        if not any(ip.startswith(self.vpn_ip) for ip in ips):
+        if not self.is_vpn_ip_assigned(ips):
             return False
 
         if not self.pinger:
@@ -109,8 +111,10 @@ class VPN(Thread):
                 internet = self.is_internet_connected()
 
                 ips = self.ip_addresses()
+                vpn_ip_assigned = self.is_vpn_ip_assigned(ips)
                 vpn_running = self.is_vpn_running(ips)
-                command_waiting = (datetime.now() - self.last_command_time).total_seconds() < self.command_wait
+                command_waiting = (datetime.now() - self.last_command_time).total_seconds() < config['settings'][
+                    'vpn_wait_time']
 
                 if self.mode == "auto":
                     shall_vpn = not self.have_excluded_ip(ips)
@@ -118,27 +122,36 @@ class VPN(Thread):
                     shall_vpn = False
                 elif self.mode == "connect":
                     shall_vpn = True
+                elif self.mode == "ignore":
+                    shall_vpn = vpn_running
                 else:
                     raise Exception("Unknown VPN mode")
 
-                if shall_vpn and vpn_running and self.state != 'connected':
+                has_connected = shall_vpn and vpn_running and self.state != 'connected'
+                has_disconnected = not shall_vpn and not vpn_running and self.state != 'disconnected'
+                shall_connect = shall_vpn and not vpn_running and (
+                            self.state != 'connecting' or not command_waiting) and internet
+                shall_disconnect = not shall_vpn and vpn_ip_assigned and (
+                            self.state != 'disconnecting' or not command_waiting)
+
+                if has_connected:
                     self.state = 'connected'
                     gui.ping_changed_signal.emit(self, True)
-                elif not shall_vpn and not vpn_running and self.state != 'disconnected':
+                elif has_disconnected:
                     self.state = 'disconnected'
                     gui.ping_changed_signal.emit(self, False)
-                elif shall_vpn and not vpn_running and (self.state != 'connecting' or not command_waiting) and internet:
-                    gui.ping_changed_signal.emit(self, None)
-                    if args.verbose:
-                        print(f"Starting VPN {self.id}")
-                    self.state = 'connecting'
-                    self.run_command(self.connect)
-                elif not shall_vpn and vpn_running and (self.state != 'disconnecting' or not command_waiting):
+                elif shall_disconnect:
                     gui.ping_changed_signal.emit(self, None)
                     if args.verbose:
                         print(f"Stopping VPN {self.id}")
                     self.state = 'disconnecting'
                     self.run_command(self.disconnect)
+                elif shall_connect:
+                    gui.ping_changed_signal.emit(self, None)
+                    if args.verbose:
+                        print(f"Starting VPN {self.id}")
+                    self.state = 'connecting'
+                    self.run_command(self.connect)
 
             except Exception:
                 pass
