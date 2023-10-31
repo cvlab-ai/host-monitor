@@ -2,6 +2,7 @@ settings:
   width: 200  # main window default width
   mini_size: [ 99, 3 ]  # size of mini window in the taskbar (pixels width/height)
   mini_position: [ 0, -3 ]  # position of mini window (pixels left/top; negative=right/bottom)
+  mini_raise_time: 2  # each X seconds mini window will be raised
   vpn_wait_time: 10  # waiting time to VPN connect/disconnect commands to complete
 
 groups: # groups of hosts in the main window
