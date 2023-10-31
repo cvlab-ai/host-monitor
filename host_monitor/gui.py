@@ -52,7 +52,6 @@ class HostLabel(QLabel):
         self.name = name
         self.address = address
         self.setText("<big><b>{}</b></big><br/><small>{}</small>".format(name, address))
-
         self.setAlignment(Qt.AlignCenter)
 
         layout = QHBoxLayout()
@@ -67,7 +66,11 @@ class HostLabel(QLabel):
         layout.addWidget(self.icon)
 
         self.init_icons()
+        self.current_up = None
         self.set_up(None)
+
+    def showEvent(self, event):
+        self.set_up(self.current_up)
 
     def init_icons(self):
         if not isinstance(self.icons[None], int):
@@ -78,8 +81,11 @@ class HostLabel(QLabel):
             self.icons[key] = icon
 
     def set_up(self, value):
-        set_bg_color(self, self.colors[value])
-        self.icon.setPixmap(self.icons[value])
+        self.current_up = value
+        if self.isVisible():
+            self.icon.setPixmap(self.icons[value])
+            color = self.colors[value].name()
+            self.setStyleSheet(f"background-color: {color}")
 
 
 class HostMiniLabel(QWidget):
@@ -124,13 +130,9 @@ class MiniWindow(QWidget):
     def __init__(self):
         QWidget.__init__(self, None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
 
-        position = list(config['settings']['mini_position'])
-        if position[0] < 0: position[0] = application.desktop().screenGeometry().width() + position[0]
-        if position[1] < 0: position[1] = application.desktop().screenGeometry().height() + position[1]
-
         size = config['settings']['mini_size']
         self.setFixedSize(*size)
-        self.move(*position)
+        self.set_position()
 
         layout = QGridLayout()
         layout.setSpacing(0)
@@ -140,11 +142,17 @@ class MiniWindow(QWidget):
         self.labels = {}
 
         self.show()
+        self.raise_()
 
-        self.timer = QTimer()
-        self.timer.setInterval(2500)
-        self.timer.timeout.connect(self.raise_)
-        self.timer.start()
+        self.timer_raise = QTimer()
+        self.timer_raise.setInterval(max(int(config['settings']['mini_raise_time'] * 1000), 100))
+        self.timer_raise.timeout.connect(self.raise_)
+        self.timer_raise.start()
+
+        self.timer_move = QTimer()
+        self.timer_move.setInterval(max(int(config['settings']['mini_raise_time'] * 1000), 100) * 60)
+        self.timer_move.timeout.connect(self.set_position)
+        self.timer_move.start()
 
     def addLabel(self, host_id):
         label = self.labels[host_id] = HostMiniLabel()
@@ -153,6 +161,12 @@ class MiniWindow(QWidget):
 
     def set_up(self, name, value):
         self.labels[name].set_up(value)
+
+    def set_position(self):
+        position = list(config['settings']['mini_position'])
+        if position[0] < 0: position[0] = application.desktop().screenGeometry().width() + position[0]
+        if position[1] < 0: position[1] = application.desktop().screenGeometry().height() + position[1]
+        self.move(*position)
 
     def mouseReleaseEvent(self, event):
         self.clicked.emit()
@@ -176,7 +190,7 @@ class MainWindow(QWidget):
         super(MainWindow, self).__init__()
         self.is_previewing = False
 
-        self.setWindowTitle('Pinger')
+        self.setWindowTitle('Host monitor')
         self.setMinimumWidth(config['settings']['width'])
 
         self.setStyleSheet("""
@@ -184,11 +198,13 @@ class MainWindow(QWidget):
              background: #2b3f3b;
         }
         HostLabel {
-            font-size:12pt; 
-            font-family:Consolas, Monospace, TypeWriter, Courier; 
-            font-weight:bold; 
-            color:black;
-            margin:0 5;
+            font-size: 12pt; 
+            font-family: Consolas, Monospace, TypeWriter, Courier; 
+            font-weight: bold; 
+            color: black;
+            margin: 0 0;
+            padding: 0 5;
+            background: #2b3f3b;
         }
         QCheckBox {
             margin: 0 0;
@@ -257,9 +273,8 @@ class MainWindow(QWidget):
 
         self.showNormal()
         self.center()
-
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
-        self.hide()
+        self.close_preview()
 
         for host in self.hosts.values():
             host.start()
