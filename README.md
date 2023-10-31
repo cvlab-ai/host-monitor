@@ -6,6 +6,8 @@ Simple GUI sitting in the tray:
 * monitor hosts (ping)
 * monitor and auto-connect, auto-disconnect VPNs
 
+![host-monitor application main window screenshot](https://raw.githubusercontent.com/cvlab-ai/host-monitor/main/setup.py)
+
 ## Installation
 
 ```pip install git+https://github.com/cvlab-ai/host-monitor.git```
